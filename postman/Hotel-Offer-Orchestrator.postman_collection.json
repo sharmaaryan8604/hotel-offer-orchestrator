@@ -1,0 +1,46 @@
+{
+  "info": {
+    "name": "Hotel Offer Orchestrator",
+    "description": "Runs the Temporal workflow and tests Redis server-side price filtering; change baseUrl to point at deployed API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:3000" }],
+  "item": [
+    {
+      "name": "Delhi - dedupe and cheapest",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/hotels?city=delhi" },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+        "const hotels = pm.response.json();",
+        "pm.test('4 unique hotels', () => pm.expect(hotels).to.have.length(4));",
+        "pm.test('Holtin from Supplier B', () => { const h=hotels.find(h=>h.name==='Holtin'); pm.expect(h.price).to.eql(5340); pm.expect(h.supplier).to.eql('Supplier B'); });",
+        "pm.test('Radison from Supplier A', () => { const h=hotels.find(h=>h.name==='Radison'); pm.expect(h.price).to.eql(5900); pm.expect(h.supplier).to.eql('Supplier A'); });"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "Delhi - Redis price range 5500 to 7500",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/hotels?city=delhi&minPrice=5500&maxPrice=7500" },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+        "const hotels=pm.response.json();",
+        "pm.test('2 filtered hotels', () => pm.expect(hotels.map(h=>h.name)).to.eql(['Radison', 'The Imperial']));"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "Unknown city - empty",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/hotels?city=atlantis" },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+        "pm.test('Empty array', () => pm.expect(pm.response.json()).to.eql([]));"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "Invalid range - 400",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/hotels?city=delhi&minPrice=7000&maxPrice=5000" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"], "type": "text/javascript" } }]
+    },
+    { "name": "Supplier A mock", "request": { "method": "GET", "url": "{{baseUrl}}/supplierA/hotels?city=delhi" } },
+    { "name": "Supplier B mock", "request": { "method": "GET", "url": "{{baseUrl}}/supplierB/hotels?city=delhi" } },
+    { "name": "Health", "request": { "method": "GET", "url": "{{baseUrl}}/health" } }
+  ]
+}
